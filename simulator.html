@@ -324,6 +324,39 @@
       }
     }
 
+    /* 공유용 링크 화면: 선택된 대상의 잔액 요약만 노출 */
+    body.share-view header { padding: 18px 14px 24px; }
+    body.share-view .subtitle { display: none; }
+    body.share-view main { width: min(760px, calc(100% - 24px)); margin-top: -10px; }
+    body.share-view .dashboard-layout {
+      display: block !important;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    body.share-view .left-pane { display: none !important; }
+    body.share-view .right-pane {
+      position: static !important;
+      max-height: none !important;
+      overflow: visible !important;
+      padding-right: 0 !important;
+      width: 100%;
+    }
+    body.share-view .right-pane .group-board {
+      display: block !important;
+      width: 100%;
+    }
+    body.share-view .readonly-balance-board {
+      display: grid !important;
+      grid-template-columns: 1fr !important;
+      gap: 10px;
+    }
+    body.share-view .readonly-balance-card {
+      width: 100%;
+      padding: 18px;
+    }
+    body.share-view .readonly-balance-card h3 { font-size: 22px; }
+    body.share-view .readonly-balance-card .remaining { font-size: 24px; }
+
   </style>
 </head>
 <body>
@@ -556,14 +589,30 @@
       return next;
     }
 
+    function normalizeShareTargetValue(raw) {
+      if (!raw) return null;
+      const decoded = decodeURIComponent(String(raw)).trim();
+      if (!decoded) return null;
+      if (ALL_VIEWS.includes(decoded)) return decoded;
+      return SHARE_TARGET_LABELS[decoded.toLowerCase()] || null;
+    }
+
     function readFixedShareTarget() {
       try {
         const params = new URLSearchParams(location.search || "");
         const raw = params.get("target") || params.get("view") || params.get("shareTarget");
-        if (!raw) return null;
-        const decoded = decodeURIComponent(raw).trim();
-        if (ALL_VIEWS.includes(decoded)) return decoded;
-        return SHARE_TARGET_LABELS[decoded.toLowerCase()] || null;
+        const explicit = normalizeShareTargetValue(raw);
+        if (explicit) return explicit;
+
+        // 사용자가 ?compensation 또는 #assessment 처럼 target= 없이 공유해도 읽을 수 있도록 보정합니다.
+        const queryOnly = (location.search || "").replace(/^\?/, "").split("&").find(Boolean);
+        const queryTarget = normalizeShareTargetValue(queryOnly?.split("=")[0]);
+        if (queryTarget) return queryTarget;
+
+        const hashTarget = normalizeShareTargetValue((location.hash || "").replace(/^#/, ""));
+        if (hashTarget) return hashTarget;
+
+        return null;
       } catch { return null; }
     }
 
@@ -849,22 +898,24 @@
     function renderReadOnlyBalanceBoard(stats) {
       const groups = viewMode === "전체" ? GROUPS : GROUPS.includes(viewMode) ? [viewMode] : [];
       if (viewMode === COMMON_GROUP) {
-        els.groupBoard.innerHTML = `<article class="card readonly-balance-card"><h3>공통 사용금액</h3><div class="remaining ok">합계 ${formatWon(stats.commonTotal)}</div><div class="footer-note">이 공유 화면은 보기 전용이며 상세 내역은 표시하지 않습니다.</div></article>`;
+        els.groupBoard.innerHTML = `<article class="card readonly-balance-card"><h3>공통 사용금액</h3><div class="remaining ok">${formatWon(stats.commonTotal)}</div><div class="footer-note">공유용 링크에서는 상세 내역 없이 잔액/금액만 표시합니다.</div></article>`;
         return;
       }
-      els.groupBoard.innerHTML = `<div class="readonly-balance-board">${groups.map(group => {
+      const totalRemaining = groups.reduce((sum, group) => sum + stats.groups[group].remaining, 0);
+      const totalClass = totalRemaining < 0 ? "over" : totalRemaining <= 30000 ? "warning" : "ok";
+      const totalCard = viewMode === "전체" ? `<article class="card readonly-balance-card readonly-total-card">
+        <h3>전체 잔액</h3>
+        <div class="remaining ${totalClass}">${totalRemaining < 0 ? `초과 ${formatWon(Math.abs(totalRemaining))}` : formatWon(totalRemaining)}</div>
+        <div class="footer-note">${formatMonth(state.selectedMonth)} 기준 전체 잔액입니다.</div>
+      </article>` : "";
+      els.groupBoard.innerHTML = `<div class="readonly-balance-board">${totalCard}${groups.map(group => {
         const s = stats.groups[group];
         const klass = statusClass(s.spent, s.budget);
-        const remainingText = s.remaining < 0 ? `초과 ${formatWon(Math.abs(s.remaining))}` : `잔액 ${formatWon(s.remaining)}`;
+        const remainingText = s.remaining < 0 ? `초과 ${formatWon(Math.abs(s.remaining))}` : formatWon(s.remaining);
         return `<article class="card readonly-balance-card">
-          <h3>${group}</h3>
+          <h3>${group} 잔액</h3>
           <div class="remaining ${klass}">${remainingText}</div>
-          <div class="meta-row"><span>월 위임금액</span><strong>${formatWon(s.budget)}</strong></div>
-          <div class="meta-row"><span>직접 사용</span><strong>${formatWon(s.direct)}</strong></div>
-          <div class="meta-row"><span>공통금액</span><strong>${formatWon(s.commonAllocated)}</strong></div>
-          <div class="meta-row"><span>총 사용</span><strong>${formatWon(s.spent)}</strong></div>
-          <div class="bar"><div class="bar-fill ${klass}" style="width:${s.budget > 0 ? Math.min(s.spent / s.budget * 100, 100) : 100}%"></div></div>
-          <div class="footer-note">공유용 링크에서는 잔액 요약만 표시합니다.</div>
+          <div class="footer-note">공유용 링크에서는 상세 내역 없이 잔액만 표시합니다.</div>
         </article>`;
       }).join("")}</div>`;
     }
@@ -982,17 +1033,26 @@
     function downloadViewHtml() { const target = readOnly ? viewMode : els.viewModeSelect.value; const doc = document.documentElement.cloneNode(true); const embedded = doc.querySelector("#embeddedData"); embedded.textContent = JSON.stringify(createSharePackage(target)); const htmlOut = "<!DOCTYPE html>\n" + doc.outerHTML; downloadText(`조활비_${target}_보기_${state.selectedMonth}.html`, htmlOut, "text/html"); }
 
     function applyReadOnlyUI() {
+      document.body.classList.toggle("share-view", readOnly);
       document.querySelectorAll(".edit-only").forEach(el => el.classList.toggle("hidden", readOnly));
       const systemCard = document.querySelector(".tetris-card");
+      const settingsCard = document.querySelector(".settings-card");
       if (readOnly) {
         els.expenseForm.classList.add("hidden");
         if (systemCard) systemCard.classList.add("hidden");
+        if (settingsCard) settingsCard.classList.add("hidden");
         els.viewModeSelect.disabled = true;
-        els.storageNote.textContent = "공유용 보기 화면입니다. 같은 저장소의 data.json 최신본을 기준으로 잔액 요약만 표시됩니다.";
+        const label = viewMode === "전체" ? "전체" : viewMode;
+        document.title = `${label} 조활비 잔액`;
+        document.querySelector("h1").textContent = `${label} 조활비 잔액`;
+        els.storageNote.textContent = `${label} 공유용 보기 화면입니다. 같은 저장소의 data.json 최신본을 기준으로 잔액 요약만 표시됩니다.`;
       } else {
         els.expenseForm.classList.remove("hidden");
         if (systemCard) systemCard.classList.remove("hidden");
+        if (settingsCard) settingsCard.classList.remove("hidden");
         els.viewModeSelect.disabled = false;
+        document.title = "월별 조활비 대시보드";
+        document.querySelector("h1").textContent = "월별 조활비 대시보드";
       }
     }
 
