@@ -1,8 +1,7 @@
-
 {
   "schema": "activity-budget-dashboard-data",
   "version": 1,
-  "exportedAt": "2026-07-08T08:20:03.078Z",
+  "exportedAt": "2026-07-08T08:27:53.124Z",
   "selectedMonth": "2026-07",
   "state": {
     "version": 4,
@@ -164,6 +163,6 @@
         }
       }
     },
-    "lastUpdatedAt": 1783498796361
+    "lastUpdatedAt": 1783499259133
   }
 }
