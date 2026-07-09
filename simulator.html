@@ -598,15 +598,9 @@
       };
     }
     function buildReadOnlyContextStrip() {
-      const [, month] = state.selectedMonth.split("-").map(Number);
-      const targetGroup = viewMode === "보상팀" ? "보상팀" : viewMode === "평가팀" ? "평가팀" : viewMode === "실장님" ? "실장님" : null;
-      let delegationCard;
-      if (targetGroup) {
-        delegationCard = `<div class="readonly-context-item"><span>${targetGroup} 월 위임금액</span><strong>${formatWon(SHARE_BASE_DELEGATION[targetGroup])}</strong></div>`;
-      } else {
-        delegationCard = `<div class="readonly-context-item"><span>팀별 월 위임금액</span><strong style="font-size:15px;line-height:1.55">보상팀 ${formatWon(SHARE_BASE_DELEGATION["보상팀"])}<br>평가팀 ${formatWon(SHARE_BASE_DELEGATION["평가팀"])}<br>실장님 ${formatWon(SHARE_BASE_DELEGATION["실장님"])}</strong></div>`;
-      }
-      return `<div class="readonly-context-strip">${delegationCard}</div>`;
+      // 공유용 화면에서는 월 위임금액 안내 카드를 별도로 표시하지 않습니다.
+      // 각 잔액 카드 안에서만 잔여액 / 총액 / 사용률을 간단히 확인합니다.
+      return "";
     }
 
     function applySystemPanelState() {
