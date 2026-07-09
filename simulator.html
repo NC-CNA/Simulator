@@ -163,6 +163,13 @@
     .readonly-balance-board { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
     .readonly-balance-card { padding:14px; }
     .readonly-update-note { grid-column: 1 / -1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .readonly-context-strip { grid-column:1 / -1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .readonly-context-item { min-width:0; padding:13px 14px; border:1px solid var(--line); border-radius:14px; background:linear-gradient(145deg,#ffffff,#f8fafc); }
+    .readonly-context-item span { display:block; color:var(--muted); font-size:12px; font-weight:800; margin-bottom:4px; }
+    .readonly-context-item strong { display:block; color:var(--text); font-size:18px; letter-spacing:-.03em; line-height:1.2; }
+    .readonly-context-item.days-left { background:linear-gradient(145deg,#eef2ff,#f8fafc); border-color:#c7d2fe; }
+    .readonly-context-item.days-left strong { color:#4338ca; }
+    .readonly-context-item.days-left small { display:block; color:#6366f1; font-size:11px; font-weight:800; margin-top:4px; }
     .readonly-balance-card h3 { margin:0 0 6px; font-size:20px; }
 
     /* 좌우 분할형 작업 화면 */
@@ -176,7 +183,7 @@
     .compact-share-label { font-size:12px; color:var(--muted); font-weight:800; }
     @media (max-width: 1180px) { .dashboard-layout { grid-template-columns:1fr; } .right-pane { position:static; max-height:none; overflow:visible; } }
     @media (max-width: 980px) { .grid, .team-head, .top-panel { grid-template-columns: 1fr; } .legend { grid-template-columns: repeat(2,1fr); } .toolbar select, .toolbar input, .toolbar button { flex:1 1 160px; } .top-actions { justify-content:flex-start; } .share-mini { border-left:0; padding-left:0; } .budget-add { grid-template-columns:1fr 1fr; } }
-    @media (max-width: 640px) { .header-inner, main { width:min(100% - 20px, 1220px); } header { padding:22px 14px 32px; } .form-grid, .allocation-grid, .category-split, .team-stats, .system-grid, .system-drop-grid, .readonly-balance-board { grid-template-columns:1fr; } .form-actions button { width:100%; } .top-actions, .toolbar, .share-mini { width:100%; } .share-mini select, .share-mini button { flex:1 1 120px; } .tetris-track { min-height:100px; flex-direction:column; } .tetris-block { width:100% !important; min-height:34px; } .budget-add { grid-template-columns:1fr; } }
+    @media (max-width: 640px) { .header-inner, main { width:min(100% - 20px, 1220px); } header { padding:22px 14px 32px; } .form-grid, .allocation-grid, .category-split, .team-stats, .system-grid, .system-drop-grid, .readonly-balance-board, .readonly-context-strip { grid-template-columns:1fr; } .form-actions button { width:100%; } .top-actions, .toolbar, .share-mini { width:100%; } .share-mini select, .share-mini button { flex:1 1 120px; } .tetris-track { min-height:100px; flex-direction:column; } .tetris-block { width:100% !important; min-height:34px; } .budget-add { grid-template-columns:1fr; } }
 
 
     /* 한 화면형 밀도 개선: 기능은 유지하고 여백·표 간격을 줄여 주요 정보를 한 페이지에 더 많이 표시 */
@@ -509,6 +516,9 @@
       ]
     };
 
+    // 공유용 화면의 월 위임금액 총액은 구성원 수/수동 조정/최종 위임금액과 무관한 고정 기준값입니다.
+    const SHARE_MONTHLY_DELEGATION_TOTAL = 1260000;
+
     const els = {
       monthSelect: document.getElementById("monthSelect"), newMonthInput: document.getElementById("newMonthInput"), addMonthBtn: document.getElementById("addMonthBtn"), currentMonthTitle: document.getElementById("currentMonthTitle"), storageNote: document.getElementById("storageNote"),
       viewModeSelect: document.getElementById("viewModeSelect"), copyShareBtn: document.getElementById("copyShareBtn"), downloadViewBtn: document.getElementById("downloadViewBtn"), downloadJsonBtn: document.getElementById("downloadJsonBtn"),
@@ -543,6 +553,36 @@
     }
     function getDataUpdatedAt() { return dataSourceMeta.exportedAt || state.lastUpdatedAt || dataSourceMeta.loadedAt; }
     function getDataUpdatedLabel() { return `데이터 최신 업데이트: ${formatDateOnly(getDataUpdatedAt())}`; }
+    function getSelectedMonthContext() {
+      const [year, month] = state.selectedMonth.split("-").map(Number);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0);
+      const msPerDay = 24 * 60 * 60 * 1000;
+      if (today < start) {
+        const daysUntil = Math.ceil((start - today) / msPerDay);
+        return { label: `${month}월 시작까지`, value: `D-${daysUntil}`, note: `${formatDateOnly(start)} 시작` };
+      }
+      if (today > end) {
+        return { label: `${month}월 현황`, value: "마감 완료", note: `${formatDateOnly(end)} 기준` };
+      }
+      const daysLeft = Math.max(0, Math.ceil((end - today) / msPerDay));
+      return {
+        label: `${month}월 남은 기간`,
+        value: daysLeft === 0 ? "오늘이 마지막 날" : `D-${daysLeft}`,
+        note: daysLeft === 0 ? "이번 달 마감일입니다" : `이번 달 종료까지 ${daysLeft}일 남았습니다`
+      };
+    }
+    function buildReadOnlyContextStrip() {
+      const [, month] = state.selectedMonth.split("-").map(Number);
+      const timing = getSelectedMonthContext();
+      return `<div class="readonly-context-strip">
+        <div class="readonly-context-item"><span>조회 월</span><strong>${month}월 현황</strong></div>
+        <div class="readonly-context-item"><span>월 기본 위임금액 총액</span><strong>${formatWon(SHARE_MONTHLY_DELEGATION_TOTAL)}</strong></div>
+        <div class="readonly-context-item days-left"><span>${timing.label}</span><strong>${timing.value}</strong><small>${timing.note}</small></div>
+      </div>`;
+    }
 
     function applySystemPanelState() {
       if (!els.systemPanel || !els.systemToggleBtn) return;
@@ -913,8 +953,9 @@
     function renderReadOnlyBalanceBoard(stats) {
       const groups = viewMode === "전체" ? GROUPS : GROUPS.includes(viewMode) ? [viewMode] : [];
       const updateNote = `<div class="readonly-update-note">${getDataUpdatedLabel()}</div>`;
+      const contextStrip = buildReadOnlyContextStrip();
       if (viewMode === COMMON_GROUP) {
-        els.groupBoard.innerHTML = `<div class="readonly-balance-board">${updateNote}<article class="card readonly-balance-card"><h3>공통 사용금액</h3><div class="remaining ok">${formatWon(stats.commonTotal)}</div><div class="footer-note">공유용 링크에서는 상세 내역 없이 잔액/금액만 표시합니다.</div></article></div>`;
+        els.groupBoard.innerHTML = `<div class="readonly-balance-board">${updateNote}${contextStrip}<article class="card readonly-balance-card"><h3>공통 사용금액</h3><div class="remaining ok">${formatWon(stats.commonTotal)}</div><div class="footer-note">공유용 링크에서는 상세 내역 없이 잔액/금액만 표시합니다.</div></article></div>`;
         return;
       }
       const totalRemaining = groups.reduce((sum, group) => sum + stats.groups[group].remaining, 0);
@@ -924,7 +965,7 @@
         <div class="remaining ${totalClass}">${totalRemaining < 0 ? `초과 ${formatWon(Math.abs(totalRemaining))}` : formatWon(totalRemaining)}</div>
         <div class="footer-note">${formatMonth(state.selectedMonth)} 기준 전체 잔액입니다.</div>
       </article>` : "";
-      els.groupBoard.innerHTML = `<div class="readonly-balance-board">${updateNote}${totalCard}${groups.map(group => {
+      els.groupBoard.innerHTML = `<div class="readonly-balance-board">${updateNote}${contextStrip}${totalCard}${groups.map(group => {
         const s = stats.groups[group];
         const klass = statusClass(s.spent, s.budget);
         const remainingText = s.remaining < 0 ? `초과 ${formatWon(Math.abs(s.remaining))}` : formatWon(s.remaining);
