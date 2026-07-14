@@ -1,7 +1,7 @@
 {
   "schema": "activity-budget-dashboard-data",
   "version": 1,
-  "exportedAt": "2026-07-13T04:47:53.584Z",
+  "exportedAt": "2026-07-14T05:34:10.964Z",
   "selectedMonth": "2026-07",
   "state": {
     "version": 4,
@@ -159,6 +159,24 @@
           "note": "",
           "createdAt": 1783917824040,
           "updatedAt": 1783917824040
+        },
+        {
+          "id": "mrk7unhmq205zr",
+          "date": "2026-07-14",
+          "group": "공통",
+          "description": "실 커피(스타벅스)",
+          "amount": 60600,
+          "category": "조활비",
+          "systemGroup": "보상팀",
+          "allocations": {
+            "보상팀": 30300,
+            "평가팀": 30300,
+            "실장님": 0
+          },
+          "receiptRequired": false,
+          "note": "",
+          "createdAt": 1784007244138,
+          "updatedAt": 1784007244138
         }
       ]
     },
@@ -181,6 +199,6 @@
         }
       }
     },
-    "lastUpdatedAt": 1783918073584
+    "lastUpdatedAt": 1784007250964
   }
 }
