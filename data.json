@@ -1,7 +1,7 @@
 {
   "schema": "activity-budget-dashboard-data",
   "version": 1,
-  "exportedAt": "2026-07-14T05:34:10.964Z",
+  "exportedAt": "2026-07-15T07:56:37.482Z",
   "selectedMonth": "2026-07",
   "state": {
     "version": 4,
@@ -177,6 +177,24 @@
           "note": "",
           "createdAt": 1784007244138,
           "updatedAt": 1784007244138
+        },
+        {
+          "id": "mrlsdsh3ej8qjj",
+          "date": "2026-07-15",
+          "group": "평가팀",
+          "description": "팀 커피(엔씨카페)",
+          "amount": 7200,
+          "category": "조활비",
+          "systemGroup": "평가팀",
+          "allocations": {
+            "보상팀": 0,
+            "평가팀": 0,
+            "실장님": 0
+          },
+          "receiptRequired": false,
+          "note": "",
+          "createdAt": 1784102195559,
+          "updatedAt": 1784102195559
         }
       ]
     },
@@ -199,6 +217,6 @@
         }
       }
     },
-    "lastUpdatedAt": 1784007250964
+    "lastUpdatedAt": 1784102197481
   }
 }
